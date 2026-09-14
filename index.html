@@ -186,6 +186,19 @@
   }
   .small[data-armed="1"] { background: var(--danger); border-color: var(--danger); color: #fff; }
 
+  /* ===== 日ごとの記録 ===== */
+  .daily { max-width: 900px; margin: 18px auto 0; background: var(--panel); border: 2px solid var(--panel-edge); border-radius: 14px; padding: 10px 12px; }
+  .daily h2 { font-size: 14px; margin: 0 0 6px; }
+  .daily .tablewrap { overflow-x: auto; }
+  .daily table { border-collapse: collapse; width: 100%; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .daily th, .daily td { padding: 4px 6px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--panel-edge); }
+  .daily th:first-child, .daily td:first-child { text-align: left; }
+  .daily th { color: var(--muted); font-size: 12px; }
+  .daily th i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--c); margin-right: 4px; }
+  .daily td.t, .daily tr.sum td { color: var(--accent); }
+  .daily tr.sum td { border-top: 2px solid var(--accent); border-bottom: 0; }
+  .daily .empty { font-size: 12px; font-weight: 700; color: var(--muted); margin: 4px 0 0; }
+
   /* ===== 履歴 ===== */
   .history { max-width: 900px; margin: 18px auto 0; background: var(--panel); border: 2px solid var(--panel-edge); border-radius: 14px; padding: 10px 12px; }
   .history .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
@@ -306,6 +319,17 @@
   </div>
 </section>
 
+<section class="daily">
+  <h2>日ごとの記録</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>日付</th><th style="--c:#e0508f"><i></i>ミュウ</th><th style="--c:#8a3fd0"><i></i>ミュウツー</th><th style="--c:#d9352e"><i></i>エスパー</th><th style="--c:#2f9a4c"><i></i>それ以外</th><th>計</th></tr></thead>
+      <tbody id="dailyBody"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="dailyEmpty">まだ記録がありません。</p>
+</section>
+
 <section class="history">
   <div class="head">
     <h2>拾ってきた履歴（新しい順）</h2>
@@ -315,13 +339,9 @@
 </section>
 
 <p class="note">
-  5つのボタン ＝ チームの5匹。下の設定で「ミュウ／ミュウツー／エスパー／それ以外」を選ぶとボタンの色が決まります
-  （ミュウとミュウツーは同じチームに入れられないので、片方を選ぶともう片方は選べなくなります）。
-  名前は書いても書かなくてもOK。液晶の左の大きい数字が5匹ぶんの合計です。
-  色つきボタンで +1、「−1」で直前の1回を取り消し、「リセット」は2回押しでその匹を 0 に。
-  押すたびに「いつ・何匹目・分類・そのときの名前」が履歴に残るので、あとで名前を変えても誰が拾ってきたか分かります。
-  数と設定はこの端末のブラウザに自動保存されます（ホーム画面に追加したアプリと Safari／Chrome は別々に保存されるので、移すときは「💾 バックアップ」を使ってください）。
-  スマホでは「↻ 横向きで使う」を押すと画面が90度回るので、スマホを横に持って本物のかちかちくんみたいに使えます（回転ロックがかかっていてもOK）。
+  ボタン ＝ チームの5匹。下の設定で分類を選ぶと色が決まります（ミュウとミュウツーは同時に選べません）。
+  「−1」は直前の1回を取り消し。「リセット」は液晶を 0 に戻すだけで、履歴と日ごとの記録は残ります。
+  データはこのブラウザに保存されます。ホーム画面のアプリと Safari／Chrome は別々なので、移すときは「💾 バックアップ」。
 </p>
 </div>
 
@@ -427,7 +447,14 @@
 
   function catOf(id) { for (var i = 0; i < CATS.length; i++) if (CATS[i].id === id) return CATS[i]; return null; }
   // 台ごとの数は履歴から数える（履歴が「ほんとうの記録」）
-  function countOf(slotIndex) { var n = 0; state.history.forEach(function (h) { if (h.slot === slotIndex) n++; }); return n; }
+  // リセットは「その匹の resetAt（リセットした時刻）」を記録するだけ。履歴そのものは消さない
+  function countOf(slotIndex) {
+    var since = state.slots[slotIndex].resetAt || 0, n = 0;
+    state.history.forEach(function (h) { if (h.slot === slotIndex && h.t > since) n++; });
+    return n;
+  }
+  function dayKey(t) { var d = new Date(t); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function fmtDay(key) { var p = key.split("-"); return (+p[1]) + "/" + (+p[2]); }
   function pad2(n) { return (n < 10 ? "0" : "") + n; }
   function fmtTime(t) { var d = new Date(t); return pad2(d.getMonth() + 1) + "/" + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()); }
   function labelOf(s, index) { return s.name || (s.cat ? catOf(s.cat).label : (index + 1) + "匹目"); }
@@ -452,6 +479,37 @@
     }
   }
 
+  // 日ごとの記録：日付 × 分類 の表（イベント期間中ずっと残る）
+  var dailyBody = document.getElementById("dailyBody");
+  var dailyEmpty = document.getElementById("dailyEmpty");
+  function renderDaily() {
+    dailyBody.innerHTML = "";
+    var days = {}, order = [];
+    state.history.forEach(function (h) {
+      var k = dayKey(h.t);
+      if (!days[k]) { days[k] = { total: 0 }; order.push(k); }
+      days[k].total++; days[k][h.cat] = (days[k][h.cat] || 0) + 1;
+    });
+    dailyEmpty.hidden = order.length > 0;
+    order.sort().reverse();
+    var grand = { total: 0 };
+    order.forEach(function (k) {
+      var d = days[k], tr = document.createElement("tr");
+      var td = document.createElement("td"); td.textContent = fmtDay(k); tr.appendChild(td);
+      CATS.forEach(function (c) { var x = document.createElement("td"); x.textContent = d[c.id] || ""; tr.appendChild(x); grand[c.id] = (grand[c.id] || 0) + (d[c.id] || 0); });
+      var tt = document.createElement("td"); tt.className = "t"; tt.textContent = d.total; tr.appendChild(tt);
+      grand.total += d.total;
+      dailyBody.appendChild(tr);
+    });
+    if (order.length) {
+      var tr = document.createElement("tr"); tr.className = "sum";
+      var td = document.createElement("td"); td.textContent = "合計"; tr.appendChild(td);
+      CATS.forEach(function (c) { var x = document.createElement("td"); x.textContent = grand[c.id] || ""; tr.appendChild(x); });
+      var tt = document.createElement("td"); tt.className = "t"; tt.textContent = grand.total; tr.appendChild(tt);
+      dailyBody.appendChild(tr);
+    }
+  }
+
   function updateAll() {
     var sum = 0;
     state.slots.forEach(function (s, i) {
@@ -462,7 +520,7 @@
       units[i].who.textContent = labelOf(s, i);
     });
     totalCol.show(sum);
-    renderHistory();
+    renderHistory(); renderDaily();
   }
 
   // ミュウとミュウツーは同じチームに入れられない ＆ 同じ伝説は1匹だけ
@@ -509,7 +567,8 @@
         if (state.history.length > HISTORY_MAX) state.history.shift();
       } else {
         // その匹の いちばん新しい記録 を1つ消す
-        for (var i = state.history.length - 1; i >= 0; i--) { if (state.history[i].slot === index) { state.history.splice(i, 1); break; } }
+        var since = s.resetAt || 0;
+        for (var i = state.history.length - 1; i >= 0; i--) { if (state.history[i].slot === index && state.history[i].t > since) { state.history.splice(i, 1); break; } }
       }
       save(); updateAll();
     }
@@ -536,7 +595,7 @@
     var minus = document.createElement("button"); minus.className = "small"; minus.textContent = "−1"; minus.onclick = function () { bump(-1); };
     var reset = document.createElement("button"); reset.className = "small"; reset.textContent = "リセット";
     armTwice(reset, "リセット", "ほんとに？", function () {
-      state.history = state.history.filter(function (h) { return h.slot !== index; }); // その匹の記録を全部消す
+      s.resetAt = Date.now(); // 液晶を 0 に戻すだけ。履歴と日ごとの記録はそのまま残る
       save(); updateAll();
     });
     row.appendChild(minus); row.appendChild(reset);
