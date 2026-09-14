@@ -587,9 +587,11 @@
     return BK_PREFIX + btoa(unescape(encodeURIComponent(json)));
   }
   function importCode(code) {
-    code = (code || "").trim();
-    if (code.indexOf(BK_PREFIX) !== 0) throw new Error("コードの形がちがいます（DEKAMAGO1: で始まるものを貼ってください）");
-    var json = decodeURIComponent(escape(atob(code.slice(BK_PREFIX.length))));
+    // 貼り付けで混ざる 改行・空白・かぎかっこ を取り、先頭の DEKAMAGO1: は大文字小文字どちらでもOKにする
+    code = (code || "").replace(/[\s"'「」]/g, "");
+    var m = /^dekamago1:/i.exec(code);
+    if (!m) throw new Error("コードの形がちがいます（DEKAMAGO1: で始まるものを貼ってください）");
+    var json = decodeURIComponent(escape(atob(code.slice(m[0].length))));
     var d = JSON.parse(json);
     if (!d || !d.slots || d.slots.length !== SLOTS || !Array.isArray(d.history)) throw new Error("中身が読めませんでした");
     state.slots = d.slots; state.history = d.history;
