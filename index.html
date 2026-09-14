@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c43d74">
+<meta name="description" content="ポケモンスリープで「おおきなマゴのみ」を拾ってきた回数を、かちかちくん風に数えるカウンター">
+<title>デカマゴカウンター</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@700;800&display=swap">
+<style>
+  /* ===== 配色トークン（明るい画面） ===== */
+  :root {
+    --bg: #fff5f9;            /* 桜白の背景 */
+    --ink: #3a1128;           /* 文字色 */
+    --muted: #8f5c76;         /* 薄い文字 */
+    --accent: #c43d74;        /* 濃いピンク */
+    --accent-soft: #ffd6e6;
+    --panel: #ffffff;
+    --panel-edge: #f0c6d8;
+    /* 本体（かちかちくんの黒いプラスチック＋ピンクのスキン）は両テーマ共通 */
+    --body-1: #3a1a30; --body-2: #1a0812; --body-line: #0c0408; --body-hi: rgba(255,255,255,.12);
+    --body-text: #ffd6e6; --body-text-dim: #b98aa4; --body-ctl: #2c1424; --body-ctl-line: #6a3a58; --body-pink: #ff8ec4;
+    /* 液晶（LCD）は両テーマ共通 */
+    --lcd-1: #cfdbb6; --lcd-2: #a9b892; --lcd-rim: #0e0f12; --lcd-seg: #1b2418; --lcd-ghost: rgba(27,36,24,.09); --lcd-ink: #2a3a26;
+    --danger: #d64545;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #2b0a1e; --ink: #ffe9f2; --muted: #c98fae; --accent: #ff8ec4; --accent-soft: #5a2044;
+      --panel: #3d1430; --panel-edge: #6a2a52; --danger: #ff7b7b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #2b0a1e; --ink: #ffe9f2; --muted: #c98fae; --accent: #ff8ec4; --accent-soft: #5a2044;
+    --panel: #3d1430; --panel-edge: #6a2a52; --danger: #ff7b7b;
+  }
+
+  html, body {
+    font-family: "M PLUS 1p", "Hiragino Sans", "Yu Gothic", sans-serif;
+    font-weight: 800;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  body { margin: 0; min-height: 100vh; }
+  #app { padding: 16px 10px 48px; }
+  /* 横向きモード：画面を90度回して、スマホを横に持って使う（回転ロックがかかっていても使える） */
+  body.rot { overflow: hidden; height: 100vh; }
+  #app.rot {
+    position: fixed; top: 0; left: 0;
+    width: 100vh; height: 100vw;
+    transform: rotate(90deg) translateY(-100%);
+    transform-origin: top left;
+    overflow: auto; -webkit-overflow-scrolling: touch;
+    background: var(--bg);
+  }
+  h1, h2, b, strong, button, input, select { font-weight: inherit; font-family: inherit; }
+  * { box-sizing: border-box; }
+  button { cursor: pointer; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* ===== ヘッダー ===== */
+  header {
+    max-width: 900px; margin: 0 auto 12px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  h1 { font-size: 20px; margin: 0; color: var(--accent); }
+  h1 small { display: block; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .12em; }
+  .chip {
+    border: 2px solid var(--panel-edge); background: var(--panel); color: var(--ink);
+    border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700;
+  }
+  .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* ===== 本体（かちかちくん） ===== */
+  .device {
+    max-width: 900px; margin: 0 auto;
+    background:
+      radial-gradient(ellipse at 15% 0%, rgba(255,142,196,.28), transparent 45%),
+      radial-gradient(ellipse at 90% 100%, rgba(255,142,196,.18), transparent 40%),
+      linear-gradient(180deg, var(--body-1), var(--body-2));
+    border: 3px solid var(--body-line);
+    border-radius: 30px;
+    padding: 12px 14px 16px;
+    box-shadow: 0 22px 34px -16px rgba(0,0,0,.7), inset 0 2px 0 var(--body-hi), inset 0 -3px 0 rgba(0,0,0,.5);
+    color: var(--body-text);
+  }
+  /* 液晶の上の銘板（ゲーム機のロゴ部分） */
+  .plate {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 2px 6px 8px; font-size: 12px; font-weight: 700; color: var(--body-text-dim); letter-spacing: .06em;
+  }
+  .plate .logo { font-size: 16px; color: var(--body-pink); letter-spacing: .08em; text-shadow: 0 0 10px rgba(255,142,196,.5); }
+  .plate .legend { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .plate .legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .plate .legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--c); }
+
+  /* ===== 横長の液晶 ===== */
+  .lcd {
+    background: linear-gradient(170deg, var(--lcd-1), var(--lcd-2));
+    border: 4px solid var(--lcd-rim);
+    border-radius: 10px;
+    padding: 8px 10px 10px;
+    box-shadow: inset 0 4px 10px rgba(0,0,0,.5), inset 0 -1px 0 rgba(255,255,255,.35), 0 1px 0 var(--body-hi);
+    display: grid; grid-template-columns: 1.6fr repeat(5, 1fr); gap: 6px;
+    position: relative; overflow: hidden;
+  }
+  .lcd::after { /* ガラスの反射 */
+    content: ""; position: absolute; left: -10%; top: -80%; width: 50%; height: 160%;
+    background: linear-gradient(120deg, rgba(255,255,255,.22), rgba(255,255,255,0));
+    transform: rotate(10deg); pointer-events: none;
+  }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+  .col .lbl {
+    font-size: 11px; font-weight: 700; color: var(--lcd-ink); letter-spacing: .04em; line-height: 1.1;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .col.total { border-right: 2px solid rgba(27,36,24,.25); padding-right: 6px; }
+  .col.total .lbl { font-size: 12px; letter-spacing: .15em; }
+  .digits { display: flex; gap: 2px; justify-content: center; width: 100%; }
+  .digits svg { flex: 1 1 0; min-width: 0; max-width: 34px; height: auto; display: block; }
+  .col.total .digits svg { max-width: 48px; }
+  .seg { fill: var(--lcd-ghost); transition: fill .05s; }
+  .seg.on { fill: var(--lcd-seg); }
+
+  /* ===== 色つきボタンの列 ===== */
+  .buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 14px; padding: 0 4px; }
+  .bwrap { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+  .bwrap .who { font-size: 11px; font-weight: 700; color: var(--body-text-dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .big {
+    width: 100%; max-width: 78px; aspect-ratio: 1; border-radius: 50%; border: 0;
+    font-size: 22px; color: var(--btn-ink);
+    background: radial-gradient(circle at 35% 30%, var(--btn-1), var(--btn-2) 78%);
+    box-shadow: 0 6px 0 var(--btn-3), 0 10px 16px -6px rgba(0,0,0,.8), inset 0 2px 3px rgba(255,255,255,.55), 0 0 0 4px #15080f;
+    transition: transform .06s, box-shadow .06s;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  .big:active, .big.down {
+    transform: translateY(5px);
+    box-shadow: 0 1px 0 var(--btn-3), 0 4px 8px -4px rgba(0,0,0,.8), inset 0 2px 3px rgba(255,255,255,.35), 0 0 0 4px #15080f;
+  }
+  .big:disabled { cursor: not-allowed; opacity: .5; font-size: 11px; font-weight: 700; }
+  /* 分類ごとのボタン色（意味を持つ色。テーマで変えない） */
+  [data-cat=""]        { --btn-1: #9ea3ad; --btn-2: #62666f; --btn-3: #3a3d44; --btn-ink: #fff; }
+  [data-cat="mew"]     { --btn-1: #ffa3cf; --btn-2: #e0508f; --btn-3: #93305c; --btn-ink: #fff; }
+  [data-cat="mewtwo"]  { --btn-1: #d59bff; --btn-2: #8a3fd0; --btn-3: #55258a; --btn-ink: #fff; }
+  [data-cat="psychic"] { --btn-1: #ff7a72; --btn-2: #d9352e; --btn-3: #8e1f1a; --btn-ink: #fff; }
+  [data-cat="other"]   { --btn-1: #7fd98f; --btn-2: #2f9a4c; --btn-3: #1c5f2e; --btn-ink: #fff; }
+
+  /* ===== 各ボタンの設定（分類・名前・−1・リセット） ===== */
+  .cfgs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; padding: 0 4px; }
+  .cfg {
+    background: rgba(0,0,0,.28); border: 1px solid var(--body-ctl-line); border-radius: 12px; padding: 8px 6px;
+    display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  }
+  .cfg .slot { font-size: 11px; font-weight: 700; color: var(--body-text-dim); display: flex; align-items: center; gap: 5px; }
+  .cfg .slot i { width: 9px; height: 9px; border-radius: 50%; background: var(--btn-2); flex: 0 0 9px; }
+  .cfg .cat {
+    width: 100%; height: 32px; border-radius: 8px; padding: 0 4px;
+    border: 1px solid var(--body-ctl-line); background: var(--body-ctl); color: var(--body-text); font-size: 13px; font-weight: 700;
+  }
+  .cfg .cat option { color: #222; background: #fff; }
+  .cfg[data-cat=""] .cat { border-color: var(--body-pink); }
+  .cfg .name {
+    width: 100%; border: 0; border-bottom: 1px dashed var(--body-ctl-line); background: transparent;
+    color: var(--body-text); font-size: 13px; font-weight: 700; padding: 2px 0; min-width: 0;
+  }
+  .cfg .name::placeholder { color: var(--body-text-dim); }
+  .row { display: flex; gap: 4px; }
+  .small {
+    flex: 1; min-width: 0; height: 28px; border-radius: 7px; font-size: 11px; font-weight: 700; padding: 0 2px;
+    border: 1px solid var(--body-ctl-line); background: var(--body-ctl); color: var(--body-text);
+  }
+  .small[data-armed="1"] { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+  /* ===== 履歴 ===== */
+  .history { max-width: 900px; margin: 18px auto 0; background: var(--panel); border: 2px solid var(--panel-edge); border-radius: 14px; padding: 10px 12px; }
+  .history .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .history .head h2 { font-size: 14px; margin: 0; }
+  .history .head .small { flex: 0 0 auto; padding: 0 10px; height: 30px; font-size: 12px; border-color: var(--panel-edge); background: var(--bg); color: var(--ink); }
+  .history ol { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  .history li { display: grid; grid-template-columns: 2.2em 5.5em 1fr auto; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 3px 4px; border-radius: 6px; }
+  .history li:nth-child(odd) { background: var(--accent-soft); }
+  .history li .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .history li .c { display: inline-flex; align-items: center; gap: 5px; }
+  .history li .c i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: 0 0 10px; }
+  .history li .who { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history li time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .history .empty { font-size: 12px; font-weight: 700; color: var(--muted); padding: 6px 4px; }
+
+  .note { max-width: 900px; margin: 18px auto 0; font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.8; }
+
+  /* 細い画面（.narrow は JS が付ける）：液晶は 合計を上段いっぱい、5匹を下段に。設定はたてに並べる */
+  .narrow .device { padding: 10px 8px 14px; border-radius: 22px; }
+  .narrow .plate { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .narrow .plate .legend { justify-content: flex-start; }
+  .narrow .lcd { grid-template-columns: repeat(5, 1fr); gap: 3px; padding: 6px 6px 8px; }
+  .narrow .col.total { grid-column: 1 / 6; border-right: 0; padding-right: 0; border-bottom: 2px solid rgba(27,36,24,.25); padding-bottom: 6px; margin-bottom: 4px; }
+  .narrow .col.total .digits svg { max-width: 44px; }
+  .narrow .digits svg { max-width: 18px; }
+  .narrow .col .lbl { font-size: 10px; }
+  .narrow .buttons { gap: 4px; padding: 0; }
+  .narrow .big { max-width: 64px; }
+  .narrow .cfgs { grid-template-columns: 1fr; gap: 6px; }
+  .narrow .cfg { display: grid; grid-template-columns: 4.5em 1fr 1fr auto; align-items: center; gap: 6px; padding: 6px 8px; }
+  .narrow .row { flex: 0 0 auto; }
+  .narrow .small { flex: 0 0 auto; padding: 0 8px; }
+
+  /* 横に持ったスマホ（幅は広いが高さが低い）：液晶とボタンが1画面に入るように詰める */
+  .short #app { padding: 8px 10px 24px; }
+  .short header { margin-bottom: 6px; }
+  .short h1 { font-size: 16px; }
+  .short h1 small { display: none; }
+  .short .plate { padding-bottom: 4px; }
+  .short .plate .legend { display: none; }
+  .short .lcd { padding: 5px 8px 7px; }
+  .short .digits svg { max-width: 26px; }
+  .short .col.total .digits svg { max-width: 36px; }
+  .short .buttons { margin-top: 8px; }
+  .short .big { max-width: 58px; font-size: 18px; box-shadow: 0 4px 0 var(--btn-3), 0 8px 12px -6px rgba(0,0,0,.8), inset 0 2px 3px rgba(255,255,255,.55), 0 0 0 3px #15080f; }
+  .short .cfgs { margin-top: 8px; }
+
+  @media (prefers-reduced-motion: reduce) { .big, .seg { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="app">
+<header>
+  <h1>デカマゴカウンター<small>KACHI-KACHI TALLY</small></h1>
+  <span class="tools">
+    <button class="chip" id="rotBtn" aria-pressed="false">↻ 横向きで使う</button>
+    <button class="chip" id="soundBtn" aria-pressed="true">🔊 音 ON</button>
+  </span>
+</header>
+
+<main class="device">
+  <div class="plate">
+    <span class="logo">おおきなマゴのみ</span>
+    <span class="legend">
+      <span style="--c:#e0508f"><i></i>ミュウ</span>
+      <span style="--c:#8a3fd0"><i></i>ミュウツー</span>
+      <span style="--c:#d9352e"><i></i>エスパー</span>
+      <span style="--c:#2f9a4c"><i></i>それ以外</span>
+    </span>
+  </div>
+  <div class="lcd" id="lcd"></div>
+  <div class="buttons" id="buttons"></div>
+  <div class="cfgs" id="cfgs"></div>
+</main>
+
+<section class="history">
+  <div class="head">
+    <h2>拾ってきた履歴（新しい順）</h2>
+    <button class="small" id="clearHistory">履歴をぜんぶ消す</button>
+  </div>
+  <ol id="historyList"></ol>
+</section>
+
+<p class="note">
+  5つのボタン ＝ チームの5匹。下の設定で「ミュウ／ミュウツー／エスパー／それ以外」を選ぶとボタンの色が決まります
+  （ミュウとミュウツーは同じチームに入れられないので、片方を選ぶともう片方は選べなくなります）。
+  名前は書いても書かなくてもOK。液晶の左の大きい数字が5匹ぶんの合計です。
+  色つきボタンで +1、「−1」で直前の1回を取り消し、「リセット」は2回押しでその匹を 0 に。
+  押すたびに「いつ・何匹目・分類・そのときの名前」が履歴に残るので、あとで名前を変えても誰が拾ってきたか分かります。
+  数と設定はこの端末のブラウザに自動保存されます。
+  スマホでは「↻ 横向きで使う」を押すと画面が90度回るので、スマホを横に持って本物のかちかちくんみたいに使えます（回転ロックがかかっていてもOK）。
+</p>
+</div>
+
+<script>
+  // ===== 分類（ボタンの色分け） =====
+  var CATS = [
+    { id: "mew",     label: "ミュウ",     color: "#e0508f" },
+    { id: "mewtwo",  label: "ミュウツー", color: "#8a3fd0" },
+    { id: "psychic", label: "エスパー",   color: "#d9352e" },
+    { id: "other",   label: "それ以外",   color: "#2f9a4c" }
+  ];
+  var SLOTS = 5; // チームは5匹
+
+  // ===== 保存まわり（localStorage ＝ ブラウザの中の小さな保存場所） =====
+  var KEY = "dekamago-counter-v3";
+  var state = { sound: true, slots: [], history: [] }; // history ＝ 拾ってきた記録の一覧
+  var HISTORY_MAX = 2000;
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) { var s = JSON.parse(raw); if (s && s.slots && s.slots.length === SLOTS) state = s; }
+    } catch (e) {}
+    if (!state.history) state.history = [];
+    if (!state.slots.length) {
+      for (var i = 0; i < SLOTS; i++) state.slots.push({ cat: "", name: "", count: 0 });
+    }
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  // ===== かちっ という音（WebAudio ＝ ブラウザで音を作るしくみ） =====
+  var actx = null;
+  function click() {
+    if (!state.sound) return;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      var t = actx.currentTime;
+      var len = Math.floor(actx.sampleRate * 0.03);
+      var buf = actx.createBuffer(1, len, actx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+      var src = actx.createBufferSource(); src.buffer = buf;
+      var bp = actx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = 1.2;
+      var g = actx.createGain(); g.gain.value = 0.9;
+      src.connect(bp); bp.connect(g); g.connect(actx.destination); src.start(t);
+      var o = actx.createOscillator(); o.type = "square"; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(80, t + 0.04);
+      var g2 = actx.createGain(); g2.gain.setValueAtTime(0.25, t); g2.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      o.connect(g2); g2.connect(actx.destination); o.start(t); o.stop(t + 0.06);
+    } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+  }
+
+  // ===== 液晶の 7 セグメント数字（SVG で描く） =====
+  var SEG_PTS = {
+    a: "10,3 46,3 41,10 15,10",
+    b: "47,5 53,9 53,45 49,50 45,45 45,11",
+    c: "45,55 49,50 53,55 53,91 47,95 45,89",
+    d: "15,90 41,90 46,97 10,97",
+    e: "3,55 7,50 11,55 11,89 9,95 3,91",
+    f: "3,9 9,5 11,11 11,45 7,50 3,45",
+    g: "13,47 43,47 47,50 43,53 13,53 9,50"
+  };
+  var DIGIT_SEGS = ["abcdef", "bc", "abged", "abgcd", "fgbc", "afgcd", "afgedc", "abc", "abcdefg", "abcdfg"];
+  function makeDigit() {
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 56 100");
+    var grp = document.createElementNS(ns, "g");
+    grp.setAttribute("transform", "skewX(-6) translate(5 0)"); // 少し斜めにして液晶っぽく
+    Object.keys(SEG_PTS).forEach(function (k) {
+      var p = document.createElementNS(ns, "polygon");
+      p.setAttribute("points", SEG_PTS[k]); p.setAttribute("class", "seg"); p.dataset.seg = k;
+      grp.appendChild(p);
+    });
+    svg.appendChild(grp);
+    return svg;
+  }
+  function setDigit(svg, n) {
+    var on = DIGIT_SEGS[n];
+    svg.querySelectorAll(".seg").forEach(function (p) { p.classList.toggle("on", on.indexOf(p.dataset.seg) >= 0); });
+  }
+  // 液晶の1列（ラベル＋数字）。show(数) で数字を出す
+  function makeCol(labelText, digits, extraClass) {
+    var col = document.createElement("div"); col.className = "col" + (extraClass ? " " + extraClass : "");
+    var lbl = document.createElement("div"); lbl.className = "lbl"; lbl.textContent = labelText;
+    var box = document.createElement("div"); box.className = "digits";
+    var svgs = [];
+    for (var i = 0; i < digits; i++) { var s = makeDigit(); box.appendChild(s); svgs.push(s); }
+    col.appendChild(lbl); col.appendChild(box);
+    return { el: col, lbl: lbl, show: function (num) {
+      var str = String(Math.max(0, Math.min(Math.pow(10, digits) - 1, num))).padStart(digits, "0");
+      for (var k = 0; k < digits; k++) setDigit(svgs[k], +str[k]);
+    } };
+  }
+
+  // ===== 画面づくり =====
+  var lcdEl = document.getElementById("lcd");
+  var buttonsEl = document.getElementById("buttons");
+  var cfgsEl = document.getElementById("cfgs");
+  var historyList = document.getElementById("historyList");
+  var totalCol, units = [];
+
+  function catOf(id) { for (var i = 0; i < CATS.length; i++) if (CATS[i].id === id) return CATS[i]; return null; }
+  // 台ごとの数は履歴から数える（履歴が「ほんとうの記録」）
+  function countOf(slotIndex) { var n = 0; state.history.forEach(function (h) { if (h.slot === slotIndex) n++; }); return n; }
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function fmtTime(t) { var d = new Date(t); return pad2(d.getMonth() + 1) + "/" + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()); }
+  function labelOf(s, index) { return s.name || (s.cat ? catOf(s.cat).label : (index + 1) + "匹目"); }
+
+  function renderHistory() {
+    historyList.innerHTML = "";
+    if (!state.history.length) {
+      var em = document.createElement("li"); em.className = "empty"; em.style.display = "block"; em.textContent = "まだ記録がありません。色つきボタンを押すとここに残ります。";
+      historyList.appendChild(em); return;
+    }
+    for (var i = state.history.length - 1; i >= 0; i--) {
+      var h = state.history[i], c = catOf(h.cat);
+      var li = document.createElement("li");
+      var n = document.createElement("span"); n.className = "n"; n.textContent = (i + 1);
+      var cc = document.createElement("span"); cc.className = "c"; cc.style.setProperty("--c", c ? c.color : "#888");
+      var dot = document.createElement("i"); cc.appendChild(dot); cc.appendChild(document.createTextNode(c ? c.label : "?"));
+      var who = document.createElement("span"); who.className = "who";
+      who.textContent = (h.slot + 1) + "匹目" + (h.name ? "・" + h.name : "");
+      var tm = document.createElement("time"); tm.textContent = fmtTime(h.t);
+      li.appendChild(n); li.appendChild(cc); li.appendChild(who); li.appendChild(tm);
+      historyList.appendChild(li);
+    }
+  }
+
+  function updateAll() {
+    var sum = 0;
+    state.slots.forEach(function (s, i) {
+      s.count = countOf(i); sum += s.count;
+      units[i].col.show(s.count);
+      units[i].col.lbl.textContent = (i + 1) + " " + labelOf(s, i);
+      units[i].who.textContent = labelOf(s, i);
+    });
+    totalCol.show(sum);
+    renderHistory();
+  }
+
+  // ミュウとミュウツーは同じチームに入れられない ＆ 同じ伝説は1匹だけ
+  function refreshOptions() {
+    var hasMew = state.slots.some(function (s) { return s.cat === "mew"; });
+    var hasMewtwo = state.slots.some(function (s) { return s.cat === "mewtwo"; });
+    units.forEach(function (u, i) {
+      var mine = state.slots[i].cat;
+      u.sel.querySelectorAll("option").forEach(function (op) {
+        if (op.value === "mew")    op.disabled = mine !== "mew"    && (hasMew || hasMewtwo);
+        if (op.value === "mewtwo") op.disabled = mine !== "mewtwo" && (hasMew || hasMewtwo);
+      });
+    });
+  }
+
+  function armTwice(btn, normalText, armedText, fn) {
+    // 2回押しで実行するボタン（1回目は赤くなって確認）
+    var timer = null;
+    btn.onclick = function () {
+      if (btn.dataset.armed === "1") { btn.dataset.armed = "0"; btn.textContent = normalText; fn(); }
+      else { btn.dataset.armed = "1"; btn.textContent = armedText; clearTimeout(timer);
+        timer = setTimeout(function () { btn.dataset.armed = "0"; btn.textContent = normalText; }, 2500); }
+    };
+  }
+
+  function buildUnit(s, index) {
+    // 液晶の列
+    var col = makeCol((index + 1) + " " + labelOf(s, index), 3);
+
+    // 色つきボタン
+    var bwrap = document.createElement("div"); bwrap.className = "bwrap"; bwrap.dataset.cat = s.cat;
+    var big = document.createElement("button"); big.className = "big";
+    var who = document.createElement("div"); who.className = "who";
+    bwrap.appendChild(big); bwrap.appendChild(who);
+    function paintBig() {
+      big.disabled = !s.cat;
+      big.textContent = s.cat ? "＋1" : "えらんでね";
+      big.setAttribute("aria-label", labelOf(s, index) + " を 1 ふやす");
+    }
+    function bump(d) {
+      if (d > 0) {
+        if (countOf(index) >= 999) return;
+        state.history.push({ t: Date.now(), slot: index, cat: s.cat, name: s.name });
+        if (state.history.length > HISTORY_MAX) state.history.shift();
+      } else {
+        // その匹の いちばん新しい記録 を1つ消す
+        for (var i = state.history.length - 1; i >= 0; i--) { if (state.history[i].slot === index) { state.history.splice(i, 1); break; } }
+      }
+      save(); updateAll();
+    }
+    big.onclick = function () { click(); bump(1); };
+    big.onkeydown = function (e) { if (e.key === " " || e.key === "Enter") big.classList.add("down"); };
+    big.onkeyup = function () { big.classList.remove("down"); };
+
+    // 設定（分類・名前・−1・リセット）
+    var cfg = document.createElement("div"); cfg.className = "cfg"; cfg.dataset.cat = s.cat;
+    var slot = document.createElement("div"); slot.className = "slot";
+    var sdot = document.createElement("i"); slot.appendChild(sdot); slot.appendChild(document.createTextNode((index + 1) + "匹目"));
+    var sel = document.createElement("select"); sel.className = "cat"; sel.setAttribute("aria-label", (index + 1) + "匹目の分類");
+    var op0 = document.createElement("option"); op0.value = ""; op0.textContent = "▼ えらぶ"; sel.appendChild(op0);
+    CATS.forEach(function (c) { var op = document.createElement("option"); op.value = c.id; op.textContent = c.label; sel.appendChild(op); });
+    sel.value = s.cat;
+    sel.onchange = function () {
+      s.cat = sel.value; bwrap.dataset.cat = s.cat; cfg.dataset.cat = s.cat; save();
+      paintBig(); refreshOptions(); updateAll();
+    };
+    var name = document.createElement("input");
+    name.className = "name"; name.placeholder = "なまえ（任意）"; name.value = s.name; name.maxLength = 12;
+    name.oninput = function () { s.name = name.value; save(); updateAll(); };
+    var row = document.createElement("div"); row.className = "row";
+    var minus = document.createElement("button"); minus.className = "small"; minus.textContent = "−1"; minus.onclick = function () { bump(-1); };
+    var reset = document.createElement("button"); reset.className = "small"; reset.textContent = "リセット";
+    armTwice(reset, "リセット", "ほんとに？", function () {
+      state.history = state.history.filter(function (h) { return h.slot !== index; }); // その匹の記録を全部消す
+      save(); updateAll();
+    });
+    row.appendChild(minus); row.appendChild(reset);
+    cfg.appendChild(slot); cfg.appendChild(sel); cfg.appendChild(name); cfg.appendChild(row);
+
+    paintBig();
+    return { col: col, bwrap: bwrap, who: who, cfg: cfg, sel: sel };
+  }
+
+  function renderAll() {
+    lcdEl.innerHTML = ""; buttonsEl.innerHTML = ""; cfgsEl.innerHTML = ""; units = [];
+    totalCol = makeCol("TOTAL", 4, "total");
+    lcdEl.appendChild(totalCol.el);
+    state.slots.forEach(function (s, i) {
+      var u = buildUnit(s, i); units.push(u);
+      lcdEl.appendChild(u.col.el); buttonsEl.appendChild(u.bwrap); cfgsEl.appendChild(u.cfg);
+    });
+    refreshOptions(); updateAll();
+  }
+
+  // 履歴をぜんぶ消す（2回押し）
+  var clearBtn = document.getElementById("clearHistory");
+  armTwice(clearBtn, "履歴をぜんぶ消す", "ほんとに？", function () { state.history = []; save(); updateAll(); });
+
+  // 画面の向きにあわせてクラスを付ける（.narrow ＝ 幅がせまい、.short ＝ 高さが低い）
+  var appEl = document.getElementById("app");
+  var rotBtn = document.getElementById("rotBtn");
+  function layout() {
+    var portrait = window.innerHeight > window.innerWidth;
+    var rot = !!state.rot && portrait; // すでに横向きに持っているときは回さない
+    document.body.classList.toggle("rot", rot); appEl.classList.toggle("rot", rot);
+    var w = rot ? window.innerHeight : window.innerWidth;
+    var h = rot ? window.innerWidth : window.innerHeight;
+    document.documentElement.classList.toggle("narrow", w < 640);
+    document.documentElement.classList.toggle("short", w >= 640 && h < 520);
+    rotBtn.setAttribute("aria-pressed", state.rot ? "true" : "false");
+    rotBtn.textContent = state.rot ? "↻ たてにもどす" : "↻ 横向きで使う";
+  }
+  rotBtn.onclick = function () { state.rot = !state.rot; save(); layout(); window.scrollTo(0, 0); };
+  window.addEventListener("resize", layout);
+  window.addEventListener("orientationchange", function () { setTimeout(layout, 150); });
+
+  // 音の ON / OFF
+  var soundBtn = document.getElementById("soundBtn");
+  function paintSound() {
+    soundBtn.setAttribute("aria-pressed", state.sound ? "true" : "false");
+    soundBtn.textContent = state.sound ? "🔊 音 ON" : "🔇 音 OFF";
+  }
+  soundBtn.onclick = function () { state.sound = !state.sound; save(); paintSound(); if (state.sound) click(); };
+
+  load(); paintSound(); renderAll(); layout();
+</script>
+
+</body>
+</html>
