@@ -400,7 +400,8 @@
     state.slots.forEach(function (s, i) {
       s.count = countOf(i); sum += s.count;
       units[i].col.show(s.count);
-      units[i].col.lbl.textContent = (i + 1) + " " + labelOf(s, i);
+      // 分類も名前もないときは「1匹目」だけ（番号が二重にならないように）
+      units[i].col.lbl.textContent = (s.cat || s.name) ? (i + 1) + " " + labelOf(s, i) : labelOf(s, i);
       units[i].who.textContent = labelOf(s, i);
     });
     totalCol.show(sum);
