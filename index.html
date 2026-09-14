@@ -190,6 +190,23 @@
   .history { max-width: 900px; margin: 18px auto 0; background: var(--panel); border: 2px solid var(--panel-edge); border-radius: 14px; padding: 10px 12px; }
   .history .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
   .history .head h2 { font-size: 14px; margin: 0; }
+  /* ===== バックアップ（別のブラウザ・ホーム画面アプリへデータを移す） ===== */
+  .backup { max-width: 900px; margin: 18px auto 0; background: var(--panel); border: 2px solid var(--accent); border-radius: 14px; padding: 12px; }
+  .backup h2 { font-size: 15px; margin: 0 0 4px; color: var(--accent); }
+  .backup p { margin: 0 0 8px; font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.7; }
+  .backup .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .narrow .backup .two { grid-template-columns: 1fr; }
+  .backup .box { display: flex; flex-direction: column; gap: 6px; }
+  .backup h3 { font-size: 13px; margin: 0; }
+  .backup textarea {
+    width: 100%; height: 84px; resize: vertical; border: 2px solid var(--panel-edge); border-radius: 10px; padding: 8px;
+    background: var(--bg); color: var(--ink); font-size: 12px; font-weight: 700; font-family: monospace; word-break: break-all;
+  }
+  .backup .act { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .backup .act .small { flex: 0 0 auto; padding: 0 12px; height: 34px; font-size: 13px; border-color: var(--accent); background: var(--accent); color: #fff; }
+  .backup .act .small.ghost { background: var(--bg); color: var(--ink); border-color: var(--panel-edge); }
+  .backup .act .small[data-armed="1"] { background: var(--danger); border-color: var(--danger); }
+  .backup .msg { font-size: 12px; font-weight: 700; color: var(--accent); min-height: 1.2em; }
   .history .head .small { flex: 0 0 auto; padding: 0 10px; height: 30px; font-size: 12px; border-color: var(--panel-edge); background: var(--bg); color: var(--ink); }
   .history ol { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
   .history li { display: grid; grid-template-columns: 2.2em 5.5em 1fr auto; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 3px 4px; border-radius: 6px; }
@@ -243,6 +260,7 @@
   <h1>デカマゴカウンター<small>KACHI-KACHI TALLY</small></h1>
   <span class="tools">
     <button class="chip" id="rotBtn" aria-pressed="false">↻ 横向きで使う</button>
+    <button class="chip" id="backupBtn" aria-pressed="false">💾 バックアップ</button>
     <button class="chip" id="soundBtn" aria-pressed="true">🔊 音 ON</button>
   </span>
 </header>
@@ -262,6 +280,32 @@
   <div class="cfgs" id="cfgs"></div>
 </main>
 
+<section class="backup" id="backup" hidden>
+  <h2>💾 バックアップ（データを別の場所へ移す）</h2>
+  <p>
+    数・名前・履歴は「開いたブラウザごと」に別々に保存されます。ホーム画面に追加したアプリと Safari／Chrome は別あつかいなので、
+    移したいときは「書き出し」のコードをコピーして、移す先で「読み込み」に貼り付けてください。
+  </p>
+  <div class="two">
+    <div class="box">
+      <h3>① 書き出し（今のデータ → コード）</h3>
+      <textarea id="exportText" readonly aria-label="書き出したコード"></textarea>
+      <div class="act">
+        <button class="small" id="copyBtn">コードをコピー</button>
+        <span class="msg" id="exportMsg"></span>
+      </div>
+    </div>
+    <div class="box">
+      <h3>② 読み込み（コード → ここに入れる）</h3>
+      <textarea id="importText" placeholder="ここにコードを貼り付け" aria-label="読み込むコード"></textarea>
+      <div class="act">
+        <button class="small" id="importBtn">読み込む</button>
+        <span class="msg" id="importMsg"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="history">
   <div class="head">
     <h2>拾ってきた履歴（新しい順）</h2>
@@ -276,7 +320,7 @@
   名前は書いても書かなくてもOK。液晶の左の大きい数字が5匹ぶんの合計です。
   色つきボタンで +1、「−1」で直前の1回を取り消し、「リセット」は2回押しでその匹を 0 に。
   押すたびに「いつ・何匹目・分類・そのときの名前」が履歴に残るので、あとで名前を変えても誰が拾ってきたか分かります。
-  数と設定はこの端末のブラウザに自動保存されます。
+  数と設定はこの端末のブラウザに自動保存されます（ホーム画面に追加したアプリと Safari／Chrome は別々に保存されるので、移すときは「💾 バックアップ」を使ってください）。
   スマホでは「↻ 横向きで使う」を押すと画面が90度回るので、スマホを横に持って本物のかちかちくんみたいに使えます（回転ロックがかかっていてもOK）。
 </p>
 </div>
@@ -534,6 +578,52 @@
   rotBtn.onclick = function () { state.rot = !state.rot; save(); layout(); window.scrollTo(0, 0); };
   window.addEventListener("resize", layout);
   window.addEventListener("orientationchange", function () { setTimeout(layout, 150); });
+
+  // ===== バックアップ：データを文字のコードにして持ち運ぶ =====
+  var BK_PREFIX = "DEKAMAGO1:";
+  function exportCode() {
+    // JSON（データを文字にした形）→ 日本語も崩れないように base64（英数字だけの形）にする
+    var json = JSON.stringify({ slots: state.slots, history: state.history, sound: state.sound });
+    return BK_PREFIX + btoa(unescape(encodeURIComponent(json)));
+  }
+  function importCode(code) {
+    code = (code || "").trim();
+    if (code.indexOf(BK_PREFIX) !== 0) throw new Error("コードの形がちがいます（DEKAMAGO1: で始まるものを貼ってください）");
+    var json = decodeURIComponent(escape(atob(code.slice(BK_PREFIX.length))));
+    var d = JSON.parse(json);
+    if (!d || !d.slots || d.slots.length !== SLOTS || !Array.isArray(d.history)) throw new Error("中身が読めませんでした");
+    state.slots = d.slots; state.history = d.history;
+    if (typeof d.sound === "boolean") state.sound = d.sound;
+  }
+  var backupEl = document.getElementById("backup");
+  var backupBtn = document.getElementById("backupBtn");
+  var exportText = document.getElementById("exportText");
+  var importText = document.getElementById("importText");
+  var exportMsg = document.getElementById("exportMsg");
+  var importMsg = document.getElementById("importMsg");
+  backupBtn.onclick = function () {
+    var open = backupEl.hidden;
+    backupEl.hidden = !open;
+    backupBtn.setAttribute("aria-pressed", open ? "true" : "false");
+    if (open) { exportText.value = exportCode(); exportMsg.textContent = ""; importMsg.textContent = ""; backupEl.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  };
+  document.getElementById("copyBtn").onclick = function () {
+    exportText.value = exportCode();
+    var done = function () { exportMsg.textContent = "コピーしました。移す先で「読み込み」に貼り付けてください"; };
+    var fail = function () { exportText.focus(); exportText.select(); exportMsg.textContent = "自動コピーできませんでした。上の文字を長押しして全部コピーしてください"; };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(exportText.value).then(done, fail);
+      else { exportText.focus(); exportText.select(); document.execCommand("copy") ? done() : fail(); }
+    } catch (e) { fail(); }
+  };
+  var importBtn = document.getElementById("importBtn");
+  armTwice(importBtn, "読み込む", "今のデータを上書きします。OK？", function () {
+    try {
+      importCode(importText.value);
+      save(); paintSound(); renderAll();
+      importText.value = ""; importMsg.textContent = "読み込みました！";
+    } catch (e) { importMsg.textContent = "読み込めませんでした：" + e.message; }
+  });
 
   // 音の ON / OFF
   var soundBtn = document.getElementById("soundBtn");
