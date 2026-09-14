@@ -341,6 +341,7 @@
 <p class="note">
   ボタン ＝ チームの5匹。下の設定で分類を選ぶと色が決まります（ミュウとミュウツーは同時に選べません）。
   「−1」は直前の1回を取り消し。「リセット」は液晶を 0 に戻すだけで、履歴と日ごとの記録は残ります。
+  ポケモンを入れ替えたら分類を選び直してください（その匹の液晶は 0 から。同じ分類どうしの入れ替えは名前を変えて「リセット」）。
   データはこのブラウザに保存されます。ホーム画面のアプリと Safari／Chrome は別々なので、移すときは「💾 バックアップ」。
 </p>
 </div>
@@ -585,6 +586,8 @@
     CATS.forEach(function (c) { var op = document.createElement("option"); op.value = c.id; op.textContent = c.label; sel.appendChild(op); });
     sel.value = s.cat;
     sel.onchange = function () {
+      // 分類を変えた ＝ 別のポケモンに入れ替えた。液晶はその匹だけ 0 から数え直す（履歴と日ごとの記録は残る）
+      if (sel.value !== s.cat && countOf(index) > 0) s.resetAt = Date.now();
       s.cat = sel.value; bwrap.dataset.cat = s.cat; cfg.dataset.cat = s.cat; save();
       paintBig(); refreshOptions(); updateAll();
     };
