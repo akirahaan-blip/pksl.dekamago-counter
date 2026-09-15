@@ -340,7 +340,7 @@
 
 <p class="note">
   ボタン ＝ チームの5匹。下の設定で分類を選ぶと色が決まります（ミュウとミュウツーは同時に選べません）。
-  「−1」は直前の1回を取り消し。「リセット」はその匹の液晶を 0 に戻すだけで、TOTAL・履歴・日ごとの記録は残ります。
+  ミュウとミュウツーは確定で2個なので、1回押すと ＋2。「−1／−2」は直前の1回を取り消し。「リセット」はその匹の液晶を 0 に戻すだけで、TOTAL・履歴・日ごとの記録は残ります。
   ポケモンを入れ替えたら分類を選び直してください（その匹の液晶は 0 から。同じ分類どうしの入れ替えは名前を変えて「リセット」）。
   データはこのブラウザに保存されます。ホーム画面のアプリと Safari／Chrome は別々なので、移すときは「💾 バックアップ」。
 </p>
@@ -355,6 +355,8 @@
     { id: "other",   label: "それ以外",   color: "#2f9a4c" }
   ];
   var SLOTS = 5; // チームは5匹
+  function perPress(cat) { return (cat === "mew" || cat === "mewtwo") ? 2 : 1; } // 1回押したら何個ぶんか
+  function qty(h) { return h.n || 1; } // 記録1件が何個ぶんか（古い記録は 1）
 
   // ===== 保存まわり（localStorage ＝ ブラウザの中の小さな保存場所） =====
   var KEY = "dekamago-counter-v3";
@@ -451,7 +453,7 @@
   // リセットは「その匹の resetAt（リセットした時刻）」を記録するだけ。履歴そのものは消さない
   function countOf(slotIndex) {
     var since = state.slots[slotIndex].resetAt || 0, n = 0;
-    state.history.forEach(function (h) { if (h.slot === slotIndex && h.t > since) n++; });
+    state.history.forEach(function (h) { if (h.slot === slotIndex && h.t > since) n += qty(h); });
     return n;
   }
   function dayKey(t) { var d = new Date(t); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
@@ -471,7 +473,7 @@
       var li = document.createElement("li");
       var n = document.createElement("span"); n.className = "n"; n.textContent = (i + 1);
       var cc = document.createElement("span"); cc.className = "c"; cc.style.setProperty("--c", c ? c.color : "#888");
-      var dot = document.createElement("i"); cc.appendChild(dot); cc.appendChild(document.createTextNode(c ? c.label : "?"));
+      var dot = document.createElement("i"); cc.appendChild(dot); cc.appendChild(document.createTextNode((c ? c.label : "?") + (qty(h) > 1 ? " ×" + qty(h) : "")));
       var who = document.createElement("span"); who.className = "who";
       who.textContent = (h.slot + 1) + "匹目" + (h.name ? "・" + h.name : "");
       var tm = document.createElement("time"); tm.textContent = fmtTime(h.t);
@@ -489,7 +491,7 @@
     state.history.forEach(function (h) {
       var k = dayKey(h.t);
       if (!days[k]) { days[k] = { total: 0 }; order.push(k); }
-      days[k].total++; days[k][h.cat] = (days[k][h.cat] || 0) + 1;
+      days[k].total += qty(h); days[k][h.cat] = (days[k][h.cat] || 0) + qty(h);
     });
     dailyEmpty.hidden = order.length > 0;
     order.sort().reverse();
@@ -520,7 +522,8 @@
       units[i].who.textContent = labelOf(s, i);
     });
     // TOTAL は履歴ぜんぶの数（各匹のリセットや入れ替えでは減らない。減るのは「履歴をぜんぶ消す」のときだけ）
-    totalCol.show(state.history.length);
+    var grand = 0; state.history.forEach(function (h) { grand += qty(h); });
+    totalCol.show(grand);
     renderHistory(); renderDaily();
   }
 
@@ -554,17 +557,19 @@
     // 色つきボタン
     var bwrap = document.createElement("div"); bwrap.className = "bwrap"; bwrap.dataset.cat = s.cat;
     var big = document.createElement("button"); big.className = "big";
+    var minus = document.createElement("button"); minus.className = "small"; // 取り消しボタン（文字は paintBig で決める）
     var who = document.createElement("div"); who.className = "who";
     bwrap.appendChild(big); bwrap.appendChild(who);
     function paintBig() {
       big.disabled = !s.cat;
-      big.textContent = s.cat ? "＋1" : "えらんでね";
+      big.textContent = s.cat ? "＋" + perPress(s.cat) : "えらんでね";
+      minus.textContent = "−" + perPress(s.cat);
       big.setAttribute("aria-label", labelOf(s, index) + " を 1 ふやす");
     }
     function bump(d) {
       if (d > 0) {
         if (countOf(index) >= 999) return;
-        state.history.push({ t: Date.now(), slot: index, cat: s.cat, name: s.name });
+        state.history.push({ t: Date.now(), slot: index, cat: s.cat, name: s.name, n: perPress(s.cat) });
         if (state.history.length > HISTORY_MAX) state.history.shift();
       } else {
         // その匹の いちばん新しい記録 を1つ消す
@@ -595,7 +600,7 @@
     name.className = "name"; name.placeholder = "なまえ（任意）"; name.value = s.name; name.maxLength = 12;
     name.oninput = function () { s.name = name.value; save(); updateAll(); };
     var row = document.createElement("div"); row.className = "row";
-    var minus = document.createElement("button"); minus.className = "small"; minus.textContent = "−1"; minus.onclick = function () { bump(-1); };
+    minus.onclick = function () { bump(-1); };
     var reset = document.createElement("button"); reset.className = "small"; reset.textContent = "リセット";
     armTwice(reset, "リセット", "ほんとに？", function () {
       s.resetAt = Date.now(); // 液晶を 0 に戻すだけ。履歴と日ごとの記録はそのまま残る
