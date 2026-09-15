@@ -242,16 +242,18 @@
   .history ol { list-style: none; margin: 0; padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; }
   .history li {
     display: grid; grid-template-columns: 3.2em 1fr auto; align-items: center; gap: 8px;
-    font-size: 13px; font-weight: 700; padding: 5px 8px 5px 10px; border-radius: 8px;
-    background: var(--bg); border-left: 5px solid var(--c);
+    font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 8px;
+    background: var(--bg);
   }
   .history li time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-  .history li .who { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-  .history li .who b { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .history li .who .sub { color: var(--muted); font-size: 11px; white-space: nowrap; }
-  .history li .tag {
-    font-size: 11px; padding: 2px 8px; border-radius: 999px; color: #fff; background: var(--c); white-space: nowrap;
+  /* 名前を分類の色でかこむ（名前がなければ分類名） */
+  .history li .pill {
+    justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; color: #fff; background: var(--c);
   }
+  .history li .qty { display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }
+  .history li .qty b { font-size: 14px; font-weight: 800; color: var(--c); }
+  .history li .qty .sub { color: var(--muted); font-size: 11px; white-space: nowrap; }
   .history .empty { font-size: 12px; font-weight: 700; color: var(--muted); padding: 6px 4px; }
 
   .note .ver { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--panel-edge); border-radius: 999px; font-size: 11px; }
@@ -368,7 +370,7 @@
   ミュウとミュウツーは確定で2個なので、1回押すと ＋2。「−1／−2」は直前の1回を取り消し。「リセット」はその匹の液晶を 0 に戻すだけで、TOTAL・履歴・日ごとの記録は残ります。
   ポケモンを入れ替えたら分類を選び直してください（その匹の液晶は 0 から。同じ分類どうしの入れ替えは名前を変えて「リセット」）。
   データはこのブラウザに保存されます。ホーム画面のアプリと Safari／Chrome は別々なので、移すときは「💾 バックアップ」。
-  <span class="ver">版 0915-10</span>
+  <span class="ver">版 0915-11</span>
 </p>
 </div>
 </div>
@@ -533,12 +535,12 @@
         var h = r.h, c = catOf(h.cat);
         var li = document.createElement("li"); li.style.setProperty("--c", c ? c.color : "#888");
         var tm = document.createElement("time"); tm.textContent = r.hm;
-        var who = document.createElement("span"); who.className = "who";
-        var b = document.createElement("b"); b.textContent = nameOf(h); // 名前がなければ空欄（分類は右のタグで分かる）
-        who.appendChild(b);
-        if (r.times > 1) { var sub = document.createElement("span"); sub.className = "sub"; sub.textContent = r.times + "回"; who.appendChild(sub); }
-        var tag = document.createElement("span"); tag.className = "tag"; tag.textContent = (c ? c.label : "?") + " +" + r.qty;
-        li.appendChild(tm); li.appendChild(who); li.appendChild(tag);
+        var pill = document.createElement("span"); pill.className = "pill";
+        pill.textContent = nameOf(h) || (c ? c.label : "?"); // 名前を分類の色でかこむ。名前がなければ分類名
+        var q = document.createElement("span"); q.className = "qty";
+        var qb = document.createElement("b"); qb.textContent = "+" + r.qty; q.appendChild(qb);
+        if (r.times > 1) { var sub = document.createElement("span"); sub.className = "sub"; sub.textContent = "(" + r.times + "回)"; q.appendChild(sub); }
+        li.appendChild(tm); li.appendChild(pill); li.appendChild(q);
         ol.appendChild(li);
       });
       det.appendChild(ol); historyList.appendChild(det);
