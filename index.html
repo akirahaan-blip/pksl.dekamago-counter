@@ -189,6 +189,7 @@
   /* ===== 日ごとの記録 ===== */
   .daily { max-width: 900px; margin: 18px auto 0; background: var(--panel); border: 2px solid var(--panel-edge); border-radius: 14px; padding: 10px 12px; }
   .daily h2 { font-size: 14px; margin: 0 0 6px; }
+  .daily h2 small { font-size: 11px; font-weight: 700; color: var(--muted); }
   .daily .tablewrap { overflow-x: auto; }
   .daily table { border-collapse: collapse; width: 100%; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .daily th, .daily td { padding: 4px 6px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--panel-edge); }
@@ -320,7 +321,7 @@
 </section>
 
 <section class="daily">
-  <h2>日ごとの記録</h2>
+  <h2>日ごとの記録<small>（朝4時切り替え）</small></h2>
   <div class="tablewrap">
     <table>
       <thead><tr><th>日付</th><th style="--c:#e0508f"><i></i>ミュウ</th><th style="--c:#8a3fd0"><i></i>ミュウツー</th><th style="--c:#d9352e"><i></i>エスパー</th><th style="--c:#2f9a4c"><i></i>それ以外</th><th>計</th></tr></thead>
@@ -456,7 +457,9 @@
     state.history.forEach(function (h) { if (h.slot === slotIndex && h.t > since) n += qty(h); });
     return n;
   }
-  function dayKey(t) { var d = new Date(t); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  // ポケモンスリープの日付は朝4時に切り替わるので、4時間ひいてから日付にする（例：9/16 の 3:59 → 9/15 扱い）
+  var DAY_START_HOUR = 4;
+  function dayKey(t) { var d = new Date(t - DAY_START_HOUR * 60 * 60 * 1000); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
   function fmtDay(key) { var p = key.split("-"); return (+p[1]) + "/" + (+p[2]); }
   function pad2(n) { return (n < 10 ? "0" : "") + n; }
   function fmtTime(t) { var d = new Date(t); return pad2(d.getMonth() + 1) + "/" + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()); }
