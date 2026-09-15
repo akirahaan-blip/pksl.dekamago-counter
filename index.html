@@ -57,14 +57,18 @@
   body { margin: 0; min-height: 100vh; }
   #app { padding: 16px 10px 48px; }
   /* 横向きモード：画面を90度回して、スマホを横に持って使う（回転ロックがかかっていても使える） */
-  /* 回した中身の「下」が画面の「右」になるので、ページ全体を横にスクロールさせる（スマホの標準のスクロールがそのまま使える） */
-  html.rot, body.rot { height: 100vh; overflow-y: hidden; overflow-x: auto; }
+  /* 回すのは中身（#app）だけ。スクロールする入れ物（#viewport）は回さないので、スマホの横スワイプがそのまま効く */
+  body.rot { overflow: hidden; height: 100vh; }
+  #viewport.rot {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+    background: var(--bg);
+  }
   #app.rot {
     position: absolute; top: 0; left: 0;
     width: 100vh; min-height: 100vw;
     transform: rotate(-90deg) translateX(-100%);
     transform-origin: top left;
-    background: var(--bg);
   }
   h1, h2, b, strong, button, input, select { font-weight: inherit; font-family: inherit; }
   * { box-sizing: border-box; }
@@ -288,6 +292,7 @@
 </head>
 <body>
 
+<div id="viewport">
 <div id="app">
 <header>
   <h1>デカマゴカウンター<small>KACHI-KACHI TALLY</small></h1>
@@ -363,8 +368,9 @@
   ミュウとミュウツーは確定で2個なので、1回押すと ＋2。「−1／−2」は直前の1回を取り消し。「リセット」はその匹の液晶を 0 に戻すだけで、TOTAL・履歴・日ごとの記録は残ります。
   ポケモンを入れ替えたら分類を選び直してください（その匹の液晶は 0 から。同じ分類どうしの入れ替えは名前を変えて「リセット」）。
   データはこのブラウザに保存されます。ホーム画面のアプリと Safari／Chrome は別々なので、移すときは「💾 バックアップ」。
-  <span class="ver">版 0915-9</span>
+  <span class="ver">版 0915-10</span>
 </p>
+</div>
 </div>
 
 <script>
@@ -697,7 +703,8 @@
   function layout() {
     var portrait = window.innerHeight > window.innerWidth;
     var rot = !!state.rot && portrait; // すでに横向きに持っているときは回さない
-    document.documentElement.classList.toggle("rot", rot); document.body.classList.toggle("rot", rot); appEl.classList.toggle("rot", rot);
+    document.body.classList.toggle("rot", rot); appEl.classList.toggle("rot", rot);
+    document.getElementById("viewport").classList.toggle("rot", rot);
     var w = rot ? window.innerHeight : window.innerWidth;
     var h = rot ? window.innerWidth : window.innerHeight;
     document.documentElement.classList.toggle("narrow", w < 640);
@@ -705,7 +712,7 @@
     rotBtn.setAttribute("aria-pressed", state.rot ? "true" : "false");
     rotBtn.textContent = state.rot ? "↻ たてにもどす" : "↻ 横向きで使う";
   }
-  rotBtn.onclick = function () { state.rot = !state.rot; save(); layout(); window.scrollTo(0, 0); };
+  rotBtn.onclick = function () { state.rot = !state.rot; save(); layout(); window.scrollTo(0, 0); document.getElementById("viewport").scrollLeft = 0; };
   window.addEventListener("resize", layout);
   window.addEventListener("orientationchange", function () { setTimeout(layout, 150); });
 
