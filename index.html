@@ -222,7 +222,7 @@
   .backup .act .small[data-armed="1"] { background: var(--danger); border-color: var(--danger); }
   .backup .msg { font-size: 12px; font-weight: 700; color: var(--accent); min-height: 1.2em; }
   .history .head .small { flex: 0 0 auto; padding: 0 10px; height: 30px; font-size: 12px; border-color: var(--panel-edge); background: var(--bg); color: var(--ink); }
-  .history .days { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .history .days { display: flex; flex-direction: column; gap: 8px; }
   /* 日ごとにたたむ（いちばん新しい日だけ開いておく） */
   .history details { border: 1px solid var(--panel-edge); border-radius: 10px; overflow: hidden; }
   .history summary {
@@ -654,7 +654,12 @@
     };
     var name = document.createElement("input");
     name.className = "name"; name.placeholder = "なまえ（任意）"; name.value = s.name; name.maxLength = 12;
-    name.oninput = function () { s.name = name.value; save(); updateAll(); };
+    name.oninput = function () {
+      s.name = name.value;
+      var since = s.resetAt || 0;
+      state.history.forEach(function (h) { if (h.slot === index && h.cat === s.cat && h.t > since && !h.name) h.name = s.name; });
+      save(); updateAll();
+    };
     var row = document.createElement("div"); row.className = "row";
     minus.onclick = function () { bump(-1); };
     var reset = document.createElement("button"); reset.className = "small"; reset.textContent = "リセット";
