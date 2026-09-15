@@ -505,14 +505,24 @@
       var unit = document.createElement("small"); unit.textContent = "個（" + g.items.length + "回）"; cnt.appendChild(unit);
       sum.appendChild(date); sum.appendChild(cnt); det.appendChild(sum);
       var ol = document.createElement("ol");
+      // 同じ分（時刻）・同じ匹・同じ分類・同じ名前 の記録は1行にまとめる（表示だけ。記録そのものは分けたまま）
+      var rows = [];
       g.items.forEach(function (h) {
-        var c = catOf(h.cat);
+        var d = new Date(h.t), hm = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+        var key = hm + "|" + h.slot + "|" + h.cat + "|" + (h.name || "");
+        var last = rows[rows.length - 1];
+        if (last && last.key === key) { last.qty += qty(h); last.times++; }
+        else rows.push({ key: key, hm: hm, h: h, qty: qty(h), times: 1 });
+      });
+      rows.forEach(function (r) {
+        var h = r.h, c = catOf(h.cat);
         var li = document.createElement("li"); li.style.setProperty("--c", c ? c.color : "#888");
-        var tm = document.createElement("time"); var d = new Date(h.t); tm.textContent = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+        var tm = document.createElement("time"); tm.textContent = r.hm;
         var who = document.createElement("span"); who.className = "who";
         var b = document.createElement("b"); b.textContent = h.name || ""; // 名前を書いていなければ空欄（分類は右のタグで分かる）
         who.appendChild(b);
-        var tag = document.createElement("span"); tag.className = "tag"; tag.textContent = (c ? c.label : "?") + " +" + qty(h);
+        if (r.times > 1) { var sub = document.createElement("span"); sub.className = "sub"; sub.textContent = r.times + "回"; who.appendChild(sub); }
+        var tag = document.createElement("span"); tag.className = "tag"; tag.textContent = (c ? c.label : "?") + " +" + r.qty;
         li.appendChild(tm); li.appendChild(who); li.appendChild(tag);
         ol.appendChild(li);
       });
