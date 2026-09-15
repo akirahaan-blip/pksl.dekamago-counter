@@ -222,14 +222,32 @@
   .backup .act .small[data-armed="1"] { background: var(--danger); border-color: var(--danger); }
   .backup .msg { font-size: 12px; font-weight: 700; color: var(--accent); min-height: 1.2em; }
   .history .head .small { flex: 0 0 auto; padding: 0 10px; height: 30px; font-size: 12px; border-color: var(--panel-edge); background: var(--bg); color: var(--ink); }
-  .history ol { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
-  .history li { display: grid; grid-template-columns: 2.2em 5.5em 1fr auto; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 3px 4px; border-radius: 6px; }
-  .history li:nth-child(odd) { background: var(--accent-soft); }
-  .history li .n { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .history li .c { display: inline-flex; align-items: center; gap: 5px; }
-  .history li .c i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: 0 0 10px; }
-  .history li .who { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .history li time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .history .days { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  /* 日ごとにたたむ（いちばん新しい日だけ開いておく） */
+  .history details { border: 1px solid var(--panel-edge); border-radius: 10px; overflow: hidden; }
+  .history summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; background: var(--accent-soft); font-size: 13px; font-weight: 800;
+  }
+  .history summary::-webkit-details-marker { display: none; }
+  .history summary::before { content: "▸"; color: var(--muted); font-size: 12px; transition: transform .15s; }
+  .history details[open] summary::before { transform: rotate(90deg); }
+  .history summary .date { flex: 1; }
+  .history summary .cnt { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .history summary .cnt small { font-size: 11px; font-weight: 700; color: var(--muted); margin-left: 2px; }
+  .history ol { list-style: none; margin: 0; padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; }
+  .history li {
+    display: grid; grid-template-columns: 3.2em 1fr auto; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700; padding: 5px 8px 5px 10px; border-radius: 8px;
+    background: var(--bg); border-left: 5px solid var(--c);
+  }
+  .history li time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .history li .who { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+  .history li .who b { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history li .who .sub { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .history li .tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px; color: #fff; background: var(--c); white-space: nowrap;
+  }
   .history .empty { font-size: 12px; font-weight: 700; color: var(--muted); padding: 6px 4px; }
 
   .note { max-width: 900px; margin: 18px auto 0; font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.8; }
@@ -333,10 +351,10 @@
 
 <section class="history">
   <div class="head">
-    <h2>拾ってきた履歴（新しい順）</h2>
+    <h2>拾ってきた履歴</h2>
     <button class="small" id="clearHistory">履歴をぜんぶ消す</button>
   </div>
-  <ol id="historyList"></ol>
+  <div class="days" id="historyList"></div>
 </section>
 
 <p class="note">
@@ -468,22 +486,41 @@
   function renderHistory() {
     historyList.innerHTML = "";
     if (!state.history.length) {
-      var em = document.createElement("li"); em.className = "empty"; em.style.display = "block"; em.textContent = "まだ記録がありません。色つきボタンを押すとここに残ります。";
+      var em = document.createElement("div"); em.className = "empty"; em.textContent = "まだ記録がありません。色つきボタンを押すとここに残ります。";
       historyList.appendChild(em); return;
     }
+    // 日（朝4時切り替え）ごとにまとめる。新しい日が上、日の中も新しい順
+    var groups = {}, order = [];
     for (var i = state.history.length - 1; i >= 0; i--) {
-      var h = state.history[i], c = catOf(h.cat);
-      var li = document.createElement("li");
-      var n = document.createElement("span"); n.className = "n"; n.textContent = (i + 1);
-      var cc = document.createElement("span"); cc.className = "c"; cc.style.setProperty("--c", c ? c.color : "#888");
-      var dot = document.createElement("i"); cc.appendChild(dot); cc.appendChild(document.createTextNode((c ? c.label : "?") + (qty(h) > 1 ? " ×" + qty(h) : "")));
-      var who = document.createElement("span"); who.className = "who";
-      who.textContent = (h.slot + 1) + "匹目" + (h.name ? "・" + h.name : "");
-      var tm = document.createElement("time"); tm.textContent = fmtTime(h.t);
-      li.appendChild(n); li.appendChild(cc); li.appendChild(who); li.appendChild(tm);
-      historyList.appendChild(li);
+      var h = state.history[i], k = dayKey(h.t);
+      if (!groups[k]) { groups[k] = { items: [], total: 0 }; order.push(k); }
+      groups[k].items.push(h); groups[k].total += qty(h);
     }
+    order.forEach(function (k, gi) {
+      var g = groups[k];
+      var det = document.createElement("details"); if (gi === 0) det.open = true;
+      var sum = document.createElement("summary");
+      var date = document.createElement("span"); date.className = "date"; date.textContent = fmtDay(k);
+      var cnt = document.createElement("span"); cnt.className = "cnt"; cnt.textContent = g.total;
+      var unit = document.createElement("small"); unit.textContent = "個（" + g.items.length + "回）"; cnt.appendChild(unit);
+      sum.appendChild(date); sum.appendChild(cnt); det.appendChild(sum);
+      var ol = document.createElement("ol");
+      g.items.forEach(function (h) {
+        var c = catOf(h.cat);
+        var li = document.createElement("li"); li.style.setProperty("--c", c ? c.color : "#888");
+        var tm = document.createElement("time"); var d = new Date(h.t); tm.textContent = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+        var who = document.createElement("span"); who.className = "who";
+        var b = document.createElement("b"); b.textContent = h.name || (c ? c.label : "?");
+        var sub = document.createElement("span"); sub.className = "sub"; sub.textContent = (h.slot + 1) + "匹目";
+        who.appendChild(b); who.appendChild(sub);
+        var tag = document.createElement("span"); tag.className = "tag"; tag.textContent = (c ? c.label : "?") + " +" + qty(h);
+        li.appendChild(tm); li.appendChild(who); li.appendChild(tag);
+        ol.appendChild(li);
+      });
+      det.appendChild(ol); historyList.appendChild(det);
+    });
   }
+
 
   // 日ごとの記録：日付 × 分類 の表（イベント期間中ずっと残る）
   var dailyBody = document.getElementById("dailyBody");
