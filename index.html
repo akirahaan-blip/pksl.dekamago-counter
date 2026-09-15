@@ -510,9 +510,8 @@
         var li = document.createElement("li"); li.style.setProperty("--c", c ? c.color : "#888");
         var tm = document.createElement("time"); var d = new Date(h.t); tm.textContent = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
         var who = document.createElement("span"); who.className = "who";
-        var b = document.createElement("b"); b.textContent = h.name || (c ? c.label : "?");
-        var sub = document.createElement("span"); sub.className = "sub"; sub.textContent = (h.slot + 1) + "匹目";
-        who.appendChild(b); who.appendChild(sub);
+        var b = document.createElement("b"); b.textContent = h.name || ""; // 名前を書いていなければ空欄（分類は右のタグで分かる）
+        who.appendChild(b);
         var tag = document.createElement("span"); tag.className = "tag"; tag.textContent = (c ? c.label : "?") + " +" + qty(h);
         li.appendChild(tm); li.appendChild(who); li.appendChild(tag);
         ol.appendChild(li);
