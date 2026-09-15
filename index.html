@@ -506,13 +506,12 @@
       sum.appendChild(date); sum.appendChild(cnt); det.appendChild(sum);
       var ol = document.createElement("ol");
       // 同じ分（時刻）・同じ匹・同じ分類・同じ名前 の記録は1行にまとめる（表示だけ。記録そのものは分けたまま）
-      var rows = [];
+      var rows = [], byKey = {};
       g.items.forEach(function (h) {
         var d = new Date(h.t), hm = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
         var key = hm + "|" + h.slot + "|" + h.cat + "|" + (h.name || "");
-        var last = rows[rows.length - 1];
-        if (last && last.key === key) { last.qty += qty(h); last.times++; }
-        else rows.push({ key: key, hm: hm, h: h, qty: qty(h), times: 1 });
+        if (byKey[key]) { byKey[key].qty += qty(h); byKey[key].times++; }
+        else { byKey[key] = { key: key, hm: hm, h: h, qty: qty(h), times: 1 }; rows.push(byKey[key]); }
       });
       rows.forEach(function (r) {
         var h = r.h, c = catOf(h.cat);
