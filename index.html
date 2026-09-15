@@ -256,6 +256,10 @@
   .history li .pill .n small { font-size: 10px; font-weight: 700; color: var(--muted); }
   .history .empty { font-size: 12px; font-weight: 700; color: var(--muted); padding: 6px 4px; }
 
+  /* 新しい版があるときのお知らせ */
+  .upd { max-width: 900px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: var(--accent); color: #fff; border-radius: 12px; padding: 8px 12px; font-size: 13px; font-weight: 700; }
+  .upd button { border: 0; background: #fff; color: var(--accent); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 800; }
   .note .ver { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--panel-edge); border-radius: 999px; font-size: 11px; }
   .note { max-width: 900px; margin: 18px auto 0; font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.8; }
 
@@ -296,6 +300,7 @@
 
 <div id="viewport">
 <div id="app">
+<div class="upd" id="upd" hidden><span>新しい版があります</span><button id="updBtn">更新する</button></div>
 <header>
   <h1>デカマゴカウンター<small>KACHI-KACHI TALLY</small></h1>
   <span class="tools">
@@ -370,7 +375,7 @@
   ミュウとミュウツーは確定で2個なので、1回押すと ＋2。「−1／−2」は直前の1回を取り消し。「リセット」はその匹の液晶を 0 に戻すだけで、TOTAL・履歴・日ごとの記録は残ります。
   ポケモンを入れ替えたら分類を選び直してください（その匹の液晶は 0 から。同じ分類どうしの入れ替えは名前を変えて「リセット」）。
   データはこのブラウザに保存されます。ホーム画面のアプリと Safari／Chrome は別々なので、移すときは「💾 バックアップ」。
-  <span class="ver">版 0915-12</span>
+  <span class="ver">版 0915-13</span>
 </p>
 </div>
 </div>
@@ -776,6 +781,18 @@
   soundBtn.onclick = function () { state.sound = !state.sound; save(); paintSound(); if (state.sound) click(); };
 
   load(); paintSound(); renderAll(); layout();
+
+  // 新しい版が出ていないか確認（ホーム画面のアプリは古いページを覚えがちなので）
+  (function () {
+    var me = (document.querySelector(".ver") || {}).textContent || "";
+    fetch(location.pathname + "?_=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.text(); }).then(function (html) {
+      var m = /版 (\d{4}-\d+)/.exec(html);
+      if (m && me && me.indexOf(m[1]) < 0) {
+        var box = document.getElementById("upd"); box.hidden = false;
+        document.getElementById("updBtn").onclick = function () { location.reload(); };
+      }
+    }).catch(function () {});
+  })();
 </script>
 
 </body>
