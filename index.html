@@ -483,6 +483,14 @@
   function fmtTime(t) { var d = new Date(t); return pad2(d.getMonth() + 1) + "/" + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()); }
   function labelOf(s, index) { return s.name || (s.cat ? catOf(s.cat).label : (index + 1) + "匹目"); }
 
+  // 記録の名前。押したときに名前が空だった記録でも、その匹に今いるポケモン（同じ分類で、リセット後）の名前があればそれを使う
+  function nameOf(h) {
+    if (h.name) return h.name;
+    var s = state.slots[h.slot];
+    if (s && s.cat === h.cat && h.t > (s.resetAt || 0)) return s.name || "";
+    return "";
+  }
+
   function renderHistory() {
     historyList.innerHTML = "";
     if (!state.history.length) {
@@ -509,7 +517,7 @@
       var rows = [], byKey = {};
       g.items.forEach(function (h) {
         var d = new Date(h.t), hm = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
-        var key = hm + "|" + h.slot + "|" + h.cat + "|" + (h.name || "");
+        var key = hm + "|" + h.slot + "|" + h.cat + "|" + nameOf(h);
         if (byKey[key]) { byKey[key].qty += qty(h); byKey[key].times++; }
         else { byKey[key] = { key: key, hm: hm, h: h, qty: qty(h), times: 1 }; rows.push(byKey[key]); }
       });
@@ -518,7 +526,7 @@
         var li = document.createElement("li"); li.style.setProperty("--c", c ? c.color : "#888");
         var tm = document.createElement("time"); tm.textContent = r.hm;
         var who = document.createElement("span"); who.className = "who";
-        var b = document.createElement("b"); b.textContent = h.name || ""; // 名前を書いていなければ空欄（分類は右のタグで分かる）
+        var b = document.createElement("b"); b.textContent = nameOf(h); // 名前がなければ空欄（分類は右のタグで分かる）
         who.appendChild(b);
         if (r.times > 1) { var sub = document.createElement("span"); sub.className = "sub"; sub.textContent = r.times + "回"; who.appendChild(sub); }
         var tag = document.createElement("span"); tag.className = "tag"; tag.textContent = (c ? c.label : "?") + " +" + r.qty;
